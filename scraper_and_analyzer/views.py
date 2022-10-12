@@ -3,11 +3,15 @@ from django.shortcuts import render, redirect
 from django.urls import resolve
 from scraper_and_analyzer import urls
 from numpy import Infinity
+from django.template.defaulttags import register
 from scraper_and_analyzer.backend.pakmobizone import pakmobizone_main
 from scraper_and_analyzer.backend.priceoye import priceOye_main
 from scraper_and_analyzer.backend.daraz import daraz_main
 # Create your views here.
 
+@register.filter
+def index(sequence, position):
+    return sequence[position]
 
 def get_min_max_price(daraz, priceOye, pakmobizone):
 
@@ -119,10 +123,33 @@ def result(request):
                     return render(request, 'results.html', context={'msg': "success", 'daraz': daraz, 'priceOye': priceOye, "pakmobizone": pakmobizone, "min_price_product": min_price_product, "max_price_product": max_price_product, "current_url": current_url})
                 except Exception as e:
                     return render(request, 'results.html', context={'msg': "error", "text": "Can't find the product or may not exist!"})
+            else:
+                try:
 
+                    priceOye = priceOye_main(keyword, "list")
+                except:
+                    priceOye = {"names": [], "prices": [],
+                                "images": [], "links": []}
+                try:
+                    daraz = daraz_main(keyword, "list")
+                except:
+                    daraz = {"names": [], "prices": [],
+                            "images": [], "links": []}
+                try:
+
+                    pakmobizone = pakmobizone_main(keyword, "list")
+                except:
+                    pakmobizone = {"names": [], "prices": [],
+                                "images": [], "links": []}
+
+                request.session['daraz'] = daraz
+                request.session['priceOye'] = priceOye
+                request.session['pakmobizone'] = pakmobizone
+                request.session['current_url'] = current_url
+
+                return redirect('list_result')
     if request.method == 'GET':
         # get values fromm session
-
         current_url = request.session['current_url']
         try:
 
@@ -147,3 +174,27 @@ def _list(request):
 def prediction(request):
     current_url = resolve(request.path_info).url_name
     return render(request, 'prediction.html', context={'current_url': current_url})
+def list_results(request):
+    # get values fromm session
+    try:
+        daraz = request.session['daraz']
+        priceOye = request.session['priceOye']
+        pakmobizone = request.session['pakmobizone']
+        current_url = request.session['current_url']
+        print(daraz)
+        print(priceOye)
+        print(pakmobizone)
+        # daraz = json.dumps(daraz)
+        # priceOye = json.dumps(priceOye)
+        # pakmobizone = json.dumps(pakmobizone)
+        # daraz range
+        daraz_range = len(daraz['names'])
+        # priceOye range
+        priceOye_range = len(priceOye['names'])
+        # pakmobizone range
+        pakmobizone_range = len(pakmobizone['names'])
+
+        return render(request, 'list_results.html', context={'msg': "success", 'daraz': daraz, 'priceOye': priceOye, "pakmobizone": pakmobizone, "current_url": current_url, "daraz_range": daraz_range, "priceOye_range": priceOye_range, "pakmobizone_range": pakmobizone_range})
+    except Exception as e:
+        print(e)
+        return redirect('Dashboard')
